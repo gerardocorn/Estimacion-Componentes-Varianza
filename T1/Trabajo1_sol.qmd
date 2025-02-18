@@ -1,0 +1,518 @@
+---
+title: "Solución 1er Trabajo Encargado"
+author: "Genética General Avanzada"
+format: html
+editor: visual
+---
+
+Para el presente trabajo use datos de pedigrí `pedigri_Merino` y de fenotipos `fenotipo_Merino.txt` que fueron simulados para ovinos.
+
+## Preguntas
+
+#### 1. ¿Cuantos animales contiene el archivo de pedigri: *pedigri_Merino*? (2 puntos)
+
+Limpiamos objetos y figuras
+```{r,message=FALSE, warning=FALSE}
+rm(list = ls())
+graphics.off()
+```
+
+Activamos librerias esenciales 
+```{r,message=FALSE, warning=FALSE}
+library(tidyverse)
+library(kableExtra)
+```
+
+Indicamos el path de directorio de trabajo
+```{r eval=FALSE}
+setwd("~/XXX/XXX/Trabajo1")
+```
+
+```{r}
+pedigri <- read.table("pedigri_Merino.txt", header = T)
+nrow(pedigri)
+head(pedigri,3)
+```
+<!-- Tiene `r nrow(pedigri)` -->
+
+\
+
+
+#### 2. ¿Calcule es el promedio de `d_fibra(Diametro de fibra)` por cada año del archivo de fenotipo: `fenotipo_Merino.txt` ? (2 puntos)
+
+```{r}
+fenotipo <- read.table("fenotipo_Merino.txt", header = T, na.strings = "0")
+head(fenotipo,3)
+```
+
+
+```{r}
+fenotipo %>% 
+  drop_na(d_fibra) %>%
+  group_by(Anho) %>% 
+  summarise(Número = n(),
+            Promedio = mean(d_fibra)) %>% 
+  rename(Año = Anho) %>% 
+  kbl()
+```
+
+
+\
+
+#### 3. ¿Calcule el promedio de `peso_vivo(Peso vivo del animal)` por cada año del archivo de fenotipo: `fenotipo_Merino.txt` ? (2 puntos)
+
+```{r}
+fenotipo %>% 
+  drop_na(peso_vivo) %>%
+  group_by(Anho) %>% 
+  summarise(Número = n(),
+            Promedio = mean(peso_vivo)) %>% 
+  rename(Año = Anho) %>% 
+  kbl()
+```
+
+\
+
+#### 4. ¿Cual es el promedio general de los valores genéticos predichos (EBV) del diámetro de fibra ? (2 puntos)
+
+> Para correr el modelo use el siguiente modelo :
+
+$$\text{caracteristica} = sexo + anho + poblacion + animal + e$$
+
+Creamos archivo de parametros: `param_BLUP_df.txt`
+
+```{yaml}
+DATAFILE
+fenotipo_Merino.txt
+SKIP_HEADER
+1
+TRAITS
+5      # d_fibra
+FIELDS_PASSED TO OUTPUT
+
+WEIGHT(S)
+
+RESIDUAL_VARIANCE
+0.6  
+EFFECT
+2 cross alpha # sex
+EFFECT
+3 cross alpha # Anho
+EFFECT
+4 cross alpha # Population
+EFFECT
+1 cross alpha # animal
+RANDOM
+animal 
+OPTIONAL
+
+FILE
+pedigri_Merino.txt
+SKIP_HEADER
+1
+PED_DEPTH
+0
+(CO)VARIANCES
+0.4 
+OPTION method BLUP
+OPTION store_accuracy 4 orig
+OPTION acctype 1.0
+OPTION inbreeding_method 1
+```
+
+Corremos los programas BLUPF90  
+
+```{r eval=FALSE}
+system("./renumf90 param_BLUP_df.txt")
+system("./blupf90+ renf90.par")
+```
+
+Copiamos el archivo de salida `acc_bf90` con otro nombre para evitar confusiones. Si el comando no funciona en Windows, lo puede copiar de la manera tradicional
+
+```{bash, eval=FALSE}
+mv acc_bf90 acc_bf90_df
+```
+
+
+```{r}
+soluciones_df <- read.table("acc_bf90_df", header = F)
+```
+
+```{r}
+soluciones_df %>%
+  select(-V1, -V2) %>%         # Elimina las dos primeras columnas
+  rename(id = V3,              # Renombra V3 a "id"
+         EBV_df = V4,          # Renombra V4 a "EBV_df"
+         r2_df = V5) %>%       # Renombra V5 a "r2_df"
+  mutate(DEP_df = EBV_df/2,    # Divide EBV_df entre dos y crea DEP_df
+         r_df = sqrt(r2_df)) %>%   # Raiz cuadrada de confiabilidad
+  summarise(Promedio_DF = mean(EBV_df))  %>% # promedio de EBV_df
+  kbl()
+```
+
+\
+
+#### 5. Hacer un rankig de los 10 machos con mayor DEP para diámetro de fibra (2 puntos)
+
+
+Leemos el archivo de soluciones
+```{r}
+soluciones_df <- read.table("acc_bf90_df", header = F)
+```
+
+Usamos un paquete de R para obtener la informacion del sexo de cada individuo
+```{r}
+pedigri <- read.table("pedigri_Merino.txt", header = T, na.strings = "0")
+library(optiSel)
+total_pedigri <- prePed(pedigri)
+info_sexo <- total_pedigri[, c(1,4)]
+```
+
+Combinamos el objeto de soluciones y el de información del sexo 
+```{r}
+sol_df_sex <- merge(soluciones_df, info_sexo, by.x = "V3",  by.y = "Indiv")
+```
+
+
+```{r}
+sol_df_sex %>%
+  filter(Sex == "male") %>%  # Selecciona solo hembras
+  select(-V1, -V2) %>%         # Elimina las dos primeras columnas
+  rename(id = V3,              # Renombra V3 a "id"
+         EBV_df = V4,          # Renombra V4 a "EBV_df"
+         r2_df = V5) %>%       # Renombra V5 a "r2_df"
+  mutate(DEP_df = EBV_df / 2,  # Divide EBV_df entre dos y crea DEP_df
+         r_df = sqrt(r2_df),   # Saca raíz cuadrada de r2_df
+         ) %>%  # Crea columna de Ranking
+  arrange(DEP_df) %>% 
+  mutate(Ranking = 1:n()) %>%
+  head(10) %>% 
+  kbl()
+```
+
+\
+
+#### 6. Hacer un rankig de los 10 machos con mayor valor de precision (`accuracy`) para diametro de fibra (2 puntos)
+
+```{r}
+sol_df_sex %>%
+  filter(Sex == "male") %>%  # Selecciona solo hembras
+  select(-V1, -V2) %>%         # Elimina las dos primeras columnas
+  rename(id = V3,              # Renombra V3 a "id"
+         EBV_df = V4,          # Renombra V4 a "EBV_df"
+         r2_df = V5) %>%       # Renombra V5 a "r2_df"
+  mutate(DEP_df = EBV_df / 2,  # Divide EBV_df entre dos y crea DEP_df
+         r_df = sqrt(r2_df),   # Saca raíz cuadrada de r2_df
+         ) %>%  # Crea columna de Ranking
+  arrange(-r_df) %>% 
+  mutate(Ranking = 1:n()) %>%
+  head(10) %>% 
+  kbl()
+```
+
+\
+
+#### 7. Hacer un rankig de las 10 hembras con mayor DEP para peso vellón (2 puntos)
+
+Recordando que:
+
+$$DEP = \frac{1}{2}EBV$$ Donde
+
+-   DEP = Diferencia esperada de la progenie, *expected progeny difference*
+
+-   EBV = Valor de cría, *estimated breeding value*
+
+Creamos archivo de parametros: `param_BLUP_pve.txt`
+
+```{yaml}
+DATAFILE
+fenotipo_Merino.txt
+SKIP_HEADER
+1
+TRAITS
+6      # p_vellongras
+FIELDS_PASSED TO OUTPUT
+
+WEIGHT(S)
+
+RESIDUAL_VARIANCE
+0.6  
+EFFECT
+2 cross alpha # sex
+EFFECT
+3 cross alpha # Anho
+EFFECT
+4 cross alpha # Population
+EFFECT
+1 cross alpha # animal
+RANDOM
+animal 
+OPTIONAL
+
+FILE
+pedigri_Merino.txt
+SKIP_HEADER
+1
+PED_DEPTH
+0
+(CO)VARIANCES
+0.4 
+OPTION method BLUP
+OPTION store_accuracy 4 orig
+OPTION acctype 1.0
+OPTION inbreeding_method 1
+```
+
+Corremos los programas BLUPF90  
+```{r eval=FALSE}
+system("./renumf90 param_BLUP_pve.txt")
+system("./blupf90+ renf90.par")
+```
+
+```{bash, eval=FALSE}
+mv acc_bf90 acc_bf90_pve
+```
+
+
+Leemos el archivo de soluciones
+```{r}
+soluciones_pve <- read.table("acc_bf90_pve", header = F)
+```
+
+Usamos un paquete de R para obtener la informacion del sexo de cada individuo
+```{r}
+pedigri <- read.table("pedigri_Merino.txt", header = T, na.strings = "0")
+library(optiSel)
+total_pedigri <- prePed(pedigri)
+info_sexo <- total_pedigri[, c(1,4)]
+```
+
+Combinamos el objeto de soluciones y el de informacion del sexo 
+```{r}
+sol_pve_sex <- merge(soluciones_pve, info_sexo, by.x = "V3",  by.y = "Indiv")
+```
+
+
+```{r}
+sol_pve_sex %>%
+  filter(Sex == "female") %>%  # Selecciona solo hembras
+  select(-V1, -V2) %>%         # Elimina las dos primeras columnas
+  rename(id = V3,              # Renombra V3 a "id"
+         EBV_pve = V4,          # Renombra V4 a "EBV_df"
+         r2_pve = V5) %>%       # Renombra V5 a "r2_df"
+  mutate(DEP_pve = EBV_pve / 2,  # Divide EBV_df entre dos y crea DEP_df
+         r_pve = sqrt(r2_pve),   # Saca raíz cuadrada de r2_df
+         ) %>%  # Crea columna de Ranking
+  arrange(-DEP_pve) %>% 
+  mutate(Ranking = 1:n()) %>%
+  head(10) %>% 
+  kbl()
+```
+
+\
+
+### 8. ¿Cual es el macho con la mayor DEP para diametro de fibra y cómo se interpreta ese valor? (2 puntos)
+
+
+Leemos el archivo de soluciones
+```{r}
+soluciones_df <- read.table("acc_bf90_df", header = F)
+```
+
+Usamos un paquete de R para obtener la informacion del sexo de cada individuo
+```{r}
+pedigri <- read.table("pedigri_Merino.txt", header = T, na.strings = "0")
+library(optiSel)
+total_pedigri <- prePed(pedigri)
+info_sexo <- total_pedigri[, c(1,4)]
+```
+
+Combinamos el objeto de soluciones y el de información del sexo 
+```{r}
+sol_df_sex <- merge(soluciones_df, info_sexo, by.x = "V3",  by.y = "Indiv")
+```
+
+
+```{r}
+sol_df_sex %>%
+  filter(Sex == "male") %>%    # Selecciona solo hembras
+  select(-V1, -V2) %>%         # Elimina las columnas V1 y V2
+  rename(id = V3,              # Renombra V3 a "id"
+         EBV_df = V4,          # Renombra V4 a "EBV_df"
+         r2_df = V5) %>%       # Renombra V5 a "r2_df"
+  mutate(DEP_df = EBV_df / 2,  # Divide EBV_df entre dos y crea DEP_df
+         r_df = sqrt(r2_df),   # Saca raíz cuadrada de r2_df
+         ) %>%  
+  arrange(DEP_df) %>% 
+  mutate(Ranking = 1:n()) %>%  # Crea columna de Ranking
+  head(1) %>% 
+  kbl()
+```
+
+
+El individuo `Merino48589` tiene la mejor DEP para diámetro de fibra con un valor de : `-1.521929 um`. Este valor indica que se espera que en media la progenie de ese individuo tendrá -1.5 um de diámetro de lana comparado con la media poblacional
+
+
+\
+
+#### 9. ¿ Cuanto es la heredabilidad de diametro de fibra? (2 puntos)
+
+Creamos al archivo de parametros `param_VCE_df.txt` con el siguiente detalle:
+
+
+```{yaml}
+DATAFILE
+fenotipo_Merino.txt
+SKIP_HEADER
+1
+TRAITS
+5      # diametro fibra
+FIELDS_PASSED TO OUTPUT
+
+WEIGHT(S)
+
+RESIDUAL_VARIANCE
+0.30  
+EFFECT
+2 cross alpha # sex
+EFFECT
+3 cross alpha # anho
+EFFECT
+4 cross alpha # poblacion
+EFFECT
+1 cross alpha # animal
+RANDOM
+animal 
+OPTIONAL
+
+FILE
+pedigri_Merino.txt
+SKIP_HEADER
+1
+PED_DEPTH
+0
+(CO)VARIANCES
+0.70
+OPTION method VCE
+OPTION EM-REML 100
+OPTION se_covar_function H2_t1 G_4_4_1_1/(G_4_4_1_1+R_1_1)
+```
+
+Corremos los programas BLUPf90
+
+```{r eval=FALSE}
+system("./renumf90 param_VCE_df.txt")
+system("./blupf90+ renf90.par")
+
+```
+
+```{yaml}
+Final Estimates
+ Genetic variance(s) for effect  4       
+  0.95423    
+ Residual variance(s)
+  0.47207    
+ inverse of AI matrix (Sampling Variance)
+  0.11182E-02 -0.50652E-03
+ -0.50652E-03  0.35712E-03
+ Correlations from inverse of AI matrix
+   1.0000     -0.80153    
+ -0.80153       1.0000    
+ SE for G
+  0.33440E-01
+ SE for R
+  0.18898E-01
+  
+ Sampling variances of covariances function of random effects (n=10000)
+  
+H2_t1  - Function: g_4_4_1_1/(g_4_4_1_1+r_1_1)
+  Mean:   0.66903    
+  Sample Mean:   0.66874    
+  Sample SD:   0.15900E-01
+ elapsed time  1.0513306E-02
+```
+
+
+La $h^2$ de diámetro de fibra = $0.67 \pm 0.016$
+
+\
+
+#### 10. ¿ Cuanto es la heredabilidad de diametro de fibra? (2 puntos)
+
+Creamos al archivo de parametros `param_VCE_pve.txt` con el siguiente detalle:
+
+```{yaml}
+DATAFILE
+fenotipo_Merino.txt
+SKIP_HEADER
+1
+TRAITS
+6      # peso vellon
+FIELDS_PASSED TO OUTPUT
+
+WEIGHT(S)
+
+RESIDUAL_VARIANCE
+0.30  
+EFFECT
+2 cross alpha # sex
+EFFECT
+3 cross alpha # anho
+EFFECT
+4 cross alpha # poblacion
+EFFECT
+1 cross alpha # animal
+RANDOM
+animal 
+OPTIONAL
+
+FILE
+pedigri_Merino.txt
+SKIP_HEADER
+1
+PED_DEPTH
+0
+(CO)VARIANCES
+0.70
+OPTION method VCE
+OPTION EM-REML 200
+OPTION se_covar_function H2_t1 G_4_4_1_1/(G_4_4_1_1+R_1_1)
+```
+
+Corremos los programas BLUPf90
+
+```{r eval=FALSE}
+system("./renumf90 param_VCE_pve.txt")
+system("./blupf90+ renf90.par")
+
+```
+
+```{yaml}
+Final Estimates
+ Genetic variance(s) for effect  4       
+  0.51609    
+ Residual variance(s)
+   1.3276    
+ inverse of AI matrix (Sampling Variance)
+  0.14309E-02 -0.87941E-03
+ -0.87941E-03  0.99947E-03
+ Correlations from inverse of AI matrix
+   1.0000     -0.73535    
+ -0.73535       1.0000    
+ SE for G
+  0.37828E-01
+ SE for R
+  0.31614E-01
+  
+ Sampling variances of covariances function of random effects (n=10000)
+  
+H2_t1  - Function: g_4_4_1_1/(g_4_4_1_1+r_1_1)
+  Mean:   0.27993    
+  Sample Mean:   0.27966    
+  Sample SD:   0.18756E-01
+ elapsed time  8.6975098E-03
+```
+
+
+La $h^2$ de peso vellón es = $0.28 \pm 0.0187$
+

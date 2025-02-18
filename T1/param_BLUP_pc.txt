@@ -1,0 +1,36 @@
+#renumf90 
+DATAFILE
+ovino_phenotype.txt
+SKIP_HEADER
+1
+TRAITS
+4      # peso corporal
+FIELDS_PASSED TO OUTPUT
+
+WEIGHT(S)
+
+RESIDUAL_VARIANCE
+0.78  
+EFFECT
+2 cross alpha #sex
+EFFECT
+3 cross alpha #fecha_nac
+EFFECT
+1 cross alpha #animal
+RANDOM
+animal 
+OPTIONAL
+
+FILE
+ovino_pedigree.txt
+SKIP_HEADER
+1
+PED_DEPTH
+0
+(CO)VARIANCES
+0.22 
+OPTION method BLUP
+OPTION EM-REML -1000
+OPTION sol se
+OPTION acctype 1
+OPTION store_accuracy 3 orig
