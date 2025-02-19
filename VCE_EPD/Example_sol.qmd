@@ -1,7 +1,9 @@
 ---
-title: "Solución 1er Trabajo Encargado"
-author: "Genética General Avanzada"
-format: html
+title: "Estimación de Componentes de Varianza y Valoración Genética (Solución)"
+subtitle: "Genética y Genómica Aplicadas al Mejoramiento"
+author: "Gerardo C. Mamani"
+date: "Lafayette, `r Sys.Date()`"
+format: pdf
 editor: visual
 ---
 
@@ -9,21 +11,24 @@ Para el presente trabajo use datos de pedigrí `pedigri_Merino` y de fenotipos `
 
 ## Preguntas
 
-#### 1. ¿Cuantos animales contiene el archivo de pedigri: *pedigri_Merino*? (2 puntos)
+#### 1. ¿Cuantos animales contiene el archivo de pedigri: *pedigri_Merino*?
 
 Limpiamos objetos y figuras
+
 ```{r,message=FALSE, warning=FALSE}
 rm(list = ls())
 graphics.off()
 ```
 
-Activamos librerias esenciales 
+Activamos librerias esenciales
+
 ```{r,message=FALSE, warning=FALSE}
 library(tidyverse)
 library(kableExtra)
 ```
 
 Indicamos el path de directorio de trabajo
+
 ```{r eval=FALSE}
 setwd("~/XXX/XXX/Trabajo1")
 ```
@@ -33,18 +38,17 @@ pedigri <- read.table("pedigri_Merino.txt", header = T)
 nrow(pedigri)
 head(pedigri,3)
 ```
+
 <!-- Tiene `r nrow(pedigri)` -->
 
 \
 
-
-#### 2. ¿Calcule es el promedio de `d_fibra(Diametro de fibra)` por cada año del archivo de fenotipo: `fenotipo_Merino.txt` ? (2 puntos)
+#### 2. Calcule es el promedio de `d_fibra(diámetro de fibra)` por cada año del archivo de fenotipo: `fenotipo_Merino.txt`
 
 ```{r}
 fenotipo <- read.table("fenotipo_Merino.txt", header = T, na.strings = "0")
 head(fenotipo,3)
 ```
-
 
 ```{r}
 fenotipo %>% 
@@ -56,10 +60,9 @@ fenotipo %>%
   kbl()
 ```
 
-
 \
 
-#### 3. ¿Calcule el promedio de `peso_vivo(Peso vivo del animal)` por cada año del archivo de fenotipo: `fenotipo_Merino.txt` ? (2 puntos)
+#### 3. Calcule el promedio de `peso_vivo(Peso vivo del animal)` por cada año del archivo de fenotipo: `fenotipo_Merino.txt`
 
 ```{r}
 fenotipo %>% 
@@ -73,13 +76,9 @@ fenotipo %>%
 
 \
 
-#### 4. ¿Cual es el promedio general de los valores genéticos predichos (EBV) del diámetro de fibra ? (2 puntos)
+#### 4. ¿ Cual es la heredabilidad de diámetro de fibra?
 
-> Para correr el modelo use el siguiente modelo :
-
-$$\text{caracteristica} = sexo + anho + poblacion + animal + e$$
-
-Creamos archivo de parametros: `param_BLUP_df.txt`
+Creamos al archivo de parámetros `param_VCE_df.txt` con el siguiente detalle:
 
 ```{yaml}
 DATAFILE
@@ -87,286 +86,7 @@ fenotipo_Merino.txt
 SKIP_HEADER
 1
 TRAITS
-5      # d_fibra
-FIELDS_PASSED TO OUTPUT
-
-WEIGHT(S)
-
-RESIDUAL_VARIANCE
-0.6  
-EFFECT
-2 cross alpha # sex
-EFFECT
-3 cross alpha # Anho
-EFFECT
-4 cross alpha # Population
-EFFECT
-1 cross alpha # animal
-RANDOM
-animal 
-OPTIONAL
-
-FILE
-pedigri_Merino.txt
-SKIP_HEADER
-1
-PED_DEPTH
-0
-(CO)VARIANCES
-0.4 
-OPTION method BLUP
-OPTION store_accuracy 4 orig
-OPTION acctype 1.0
-OPTION inbreeding_method 1
-```
-
-Corremos los programas BLUPF90  
-
-```{r eval=FALSE}
-system("./renumf90 param_BLUP_df.txt")
-system("./blupf90+ renf90.par")
-```
-
-Copiamos el archivo de salida `acc_bf90` con otro nombre para evitar confusiones. Si el comando no funciona en Windows, lo puede copiar de la manera tradicional
-
-```{bash, eval=FALSE}
-mv acc_bf90 acc_bf90_df
-```
-
-
-```{r}
-soluciones_df <- read.table("acc_bf90_df", header = F)
-```
-
-```{r}
-soluciones_df %>%
-  select(-V1, -V2) %>%         # Elimina las dos primeras columnas
-  rename(id = V3,              # Renombra V3 a "id"
-         EBV_df = V4,          # Renombra V4 a "EBV_df"
-         r2_df = V5) %>%       # Renombra V5 a "r2_df"
-  mutate(DEP_df = EBV_df/2,    # Divide EBV_df entre dos y crea DEP_df
-         r_df = sqrt(r2_df)) %>%   # Raiz cuadrada de confiabilidad
-  summarise(Promedio_DF = mean(EBV_df))  %>% # promedio de EBV_df
-  kbl()
-```
-
-\
-
-#### 5. Hacer un rankig de los 10 machos con mayor DEP para diámetro de fibra (2 puntos)
-
-
-Leemos el archivo de soluciones
-```{r}
-soluciones_df <- read.table("acc_bf90_df", header = F)
-```
-
-Usamos un paquete de R para obtener la informacion del sexo de cada individuo
-```{r}
-pedigri <- read.table("pedigri_Merino.txt", header = T, na.strings = "0")
-library(optiSel)
-total_pedigri <- prePed(pedigri)
-info_sexo <- total_pedigri[, c(1,4)]
-```
-
-Combinamos el objeto de soluciones y el de información del sexo 
-```{r}
-sol_df_sex <- merge(soluciones_df, info_sexo, by.x = "V3",  by.y = "Indiv")
-```
-
-
-```{r}
-sol_df_sex %>%
-  filter(Sex == "male") %>%  # Selecciona solo hembras
-  select(-V1, -V2) %>%         # Elimina las dos primeras columnas
-  rename(id = V3,              # Renombra V3 a "id"
-         EBV_df = V4,          # Renombra V4 a "EBV_df"
-         r2_df = V5) %>%       # Renombra V5 a "r2_df"
-  mutate(DEP_df = EBV_df / 2,  # Divide EBV_df entre dos y crea DEP_df
-         r_df = sqrt(r2_df),   # Saca raíz cuadrada de r2_df
-         ) %>%  # Crea columna de Ranking
-  arrange(DEP_df) %>% 
-  mutate(Ranking = 1:n()) %>%
-  head(10) %>% 
-  kbl()
-```
-
-\
-
-#### 6. Hacer un rankig de los 10 machos con mayor valor de precision (`accuracy`) para diametro de fibra (2 puntos)
-
-```{r}
-sol_df_sex %>%
-  filter(Sex == "male") %>%  # Selecciona solo hembras
-  select(-V1, -V2) %>%         # Elimina las dos primeras columnas
-  rename(id = V3,              # Renombra V3 a "id"
-         EBV_df = V4,          # Renombra V4 a "EBV_df"
-         r2_df = V5) %>%       # Renombra V5 a "r2_df"
-  mutate(DEP_df = EBV_df / 2,  # Divide EBV_df entre dos y crea DEP_df
-         r_df = sqrt(r2_df),   # Saca raíz cuadrada de r2_df
-         ) %>%  # Crea columna de Ranking
-  arrange(-r_df) %>% 
-  mutate(Ranking = 1:n()) %>%
-  head(10) %>% 
-  kbl()
-```
-
-\
-
-#### 7. Hacer un rankig de las 10 hembras con mayor DEP para peso vellón (2 puntos)
-
-Recordando que:
-
-$$DEP = \frac{1}{2}EBV$$ Donde
-
--   DEP = Diferencia esperada de la progenie, *expected progeny difference*
-
--   EBV = Valor de cría, *estimated breeding value*
-
-Creamos archivo de parametros: `param_BLUP_pve.txt`
-
-```{yaml}
-DATAFILE
-fenotipo_Merino.txt
-SKIP_HEADER
-1
-TRAITS
-6      # p_vellongras
-FIELDS_PASSED TO OUTPUT
-
-WEIGHT(S)
-
-RESIDUAL_VARIANCE
-0.6  
-EFFECT
-2 cross alpha # sex
-EFFECT
-3 cross alpha # Anho
-EFFECT
-4 cross alpha # Population
-EFFECT
-1 cross alpha # animal
-RANDOM
-animal 
-OPTIONAL
-
-FILE
-pedigri_Merino.txt
-SKIP_HEADER
-1
-PED_DEPTH
-0
-(CO)VARIANCES
-0.4 
-OPTION method BLUP
-OPTION store_accuracy 4 orig
-OPTION acctype 1.0
-OPTION inbreeding_method 1
-```
-
-Corremos los programas BLUPF90  
-```{r eval=FALSE}
-system("./renumf90 param_BLUP_pve.txt")
-system("./blupf90+ renf90.par")
-```
-
-```{bash, eval=FALSE}
-mv acc_bf90 acc_bf90_pve
-```
-
-
-Leemos el archivo de soluciones
-```{r}
-soluciones_pve <- read.table("acc_bf90_pve", header = F)
-```
-
-Usamos un paquete de R para obtener la informacion del sexo de cada individuo
-```{r}
-pedigri <- read.table("pedigri_Merino.txt", header = T, na.strings = "0")
-library(optiSel)
-total_pedigri <- prePed(pedigri)
-info_sexo <- total_pedigri[, c(1,4)]
-```
-
-Combinamos el objeto de soluciones y el de informacion del sexo 
-```{r}
-sol_pve_sex <- merge(soluciones_pve, info_sexo, by.x = "V3",  by.y = "Indiv")
-```
-
-
-```{r}
-sol_pve_sex %>%
-  filter(Sex == "female") %>%  # Selecciona solo hembras
-  select(-V1, -V2) %>%         # Elimina las dos primeras columnas
-  rename(id = V3,              # Renombra V3 a "id"
-         EBV_pve = V4,          # Renombra V4 a "EBV_df"
-         r2_pve = V5) %>%       # Renombra V5 a "r2_df"
-  mutate(DEP_pve = EBV_pve / 2,  # Divide EBV_df entre dos y crea DEP_df
-         r_pve = sqrt(r2_pve),   # Saca raíz cuadrada de r2_df
-         ) %>%  # Crea columna de Ranking
-  arrange(-DEP_pve) %>% 
-  mutate(Ranking = 1:n()) %>%
-  head(10) %>% 
-  kbl()
-```
-
-\
-
-### 8. ¿Cual es el macho con la mayor DEP para diametro de fibra y cómo se interpreta ese valor? (2 puntos)
-
-
-Leemos el archivo de soluciones
-```{r}
-soluciones_df <- read.table("acc_bf90_df", header = F)
-```
-
-Usamos un paquete de R para obtener la informacion del sexo de cada individuo
-```{r}
-pedigri <- read.table("pedigri_Merino.txt", header = T, na.strings = "0")
-library(optiSel)
-total_pedigri <- prePed(pedigri)
-info_sexo <- total_pedigri[, c(1,4)]
-```
-
-Combinamos el objeto de soluciones y el de información del sexo 
-```{r}
-sol_df_sex <- merge(soluciones_df, info_sexo, by.x = "V3",  by.y = "Indiv")
-```
-
-
-```{r}
-sol_df_sex %>%
-  filter(Sex == "male") %>%    # Selecciona solo hembras
-  select(-V1, -V2) %>%         # Elimina las columnas V1 y V2
-  rename(id = V3,              # Renombra V3 a "id"
-         EBV_df = V4,          # Renombra V4 a "EBV_df"
-         r2_df = V5) %>%       # Renombra V5 a "r2_df"
-  mutate(DEP_df = EBV_df / 2,  # Divide EBV_df entre dos y crea DEP_df
-         r_df = sqrt(r2_df),   # Saca raíz cuadrada de r2_df
-         ) %>%  
-  arrange(DEP_df) %>% 
-  mutate(Ranking = 1:n()) %>%  # Crea columna de Ranking
-  head(1) %>% 
-  kbl()
-```
-
-
-El individuo `Merino48589` tiene la mejor DEP para diámetro de fibra con un valor de : `-1.521929 um`. Este valor indica que se espera que en media la progenie de ese individuo tendrá -1.5 um de diámetro de lana comparado con la media poblacional
-
-
-\
-
-#### 9. ¿ Cuanto es la heredabilidad de diametro de fibra? (2 puntos)
-
-Creamos al archivo de parametros `param_VCE_df.txt` con el siguiente detalle:
-
-
-```{yaml}
-DATAFILE
-fenotipo_Merino.txt
-SKIP_HEADER
-1
-TRAITS
-5      # diametro fibra
+5      # diámetro fibra
 FIELDS_PASSED TO OUTPUT
 
 WEIGHT(S)
@@ -432,14 +152,13 @@ H2_t1  - Function: g_4_4_1_1/(g_4_4_1_1+r_1_1)
  elapsed time  1.0513306E-02
 ```
 
-
 La $h^2$ de diámetro de fibra = $0.67 \pm 0.016$
 
 \
 
-#### 10. ¿ Cuanto es la heredabilidad de diametro de fibra? (2 puntos)
+#### 5. ¿ Cual es la heredabilidad de diámetro de fibra?
 
-Creamos al archivo de parametros `param_VCE_pve.txt` con el siguiente detalle:
+Creamos al archivo de parámetros `param_VCE_pve.txt` con el siguiente detalle:
 
 ```{yaml}
 DATAFILE
@@ -513,6 +232,381 @@ H2_t1  - Function: g_4_4_1_1/(g_4_4_1_1+r_1_1)
  elapsed time  8.6975098E-03
 ```
 
-
 La $h^2$ de peso vellón es = $0.28 \pm 0.0187$
 
+ 
+
+#### 6. ¿Cual es el promedio general de los valores genéticos predichos (EBV) del diámetro de fibra ?
+
+> Para correr el modelo use el siguiente modelo :
+
+$$\text{Peso Vellón o diámetro fibra} = sexo + anho + poblacion + animal + e$$
+
+Creamos archivo de parámetros: `param_BLUP_df.txt`
+
+```{yaml}
+DATAFILE
+fenotipo_Merino.txt
+SKIP_HEADER
+1
+TRAITS
+5      # d_fibra
+FIELDS_PASSED TO OUTPUT
+
+WEIGHT(S)
+
+RESIDUAL_VARIANCE
+0.6  
+EFFECT
+2 cross alpha # sex
+EFFECT
+3 cross alpha # Anho
+EFFECT
+4 cross alpha # Population
+EFFECT
+1 cross alpha # animal
+RANDOM
+animal 
+OPTIONAL
+
+FILE
+pedigri_Merino.txt
+SKIP_HEADER
+1
+PED_DEPTH
+0
+(CO)VARIANCES
+0.4 
+OPTION method BLUP
+OPTION store_accuracy 4 orig
+OPTION acctype 1.0
+OPTION inbreeding_method 1
+```
+
+<br>
+
+Corremos los programas BLUPF90
+
+```{r eval=FALSE}
+system("./renumf90 param_BLUP_df.txt")
+system("./blupf90+ renf90.par")
+```
+
+Copiamos el archivo de salida `acc_bf90` con otro nombre para evitar confusiones. Si el comando no funciona en Windows, lo puede copiar de la manera tradicional
+
+```{bash, eval=FALSE}
+mv acc_bf90 acc_bf90_df
+```
+
+```{r}
+soluciones_df <- read.table("acc_bf90_df", header = F)
+```
+
+```{r}
+soluciones_df %>%
+  select(-V1, -V2) %>%         # Elimina las dos primeras columnas
+  rename(id = V3,              # Renombra V3 a "id"
+         EBV_df = V4,          # Renombra V4 a "EBV_df"
+         r2_df = V5) %>%       # Renombra V5 a "r2_df"
+  mutate(DEP_df = EBV_df/2,    # Divide EBV_df entre dos y crea DEP_df
+         r_df = sqrt(r2_df)) %>%   # Raiz cuadrada de confiabilidad
+  summarise(Promedio_DF = mean(EBV_df))  %>% # promedio de EBV_df
+  kbl()
+```
+
+\
+
+#### 7. Hacer un *ranking* de los 10 machos con mayor DEP para diámetro de fibra
+
+Leemos el archivo de soluciones
+
+```{r}
+soluciones_df <- read.table("acc_bf90_df", header = F)
+```
+
+Usamos un paquete de R para obtener la informacion del sexo de cada individuo
+
+```{r}
+pedigri <- read.table("pedigri_Merino.txt", header = T, na.strings = "0")
+```
+
+```{r}
+library(optiSel)
+total_pedigri <- prePed(pedigri)
+info_sexo <- total_pedigri[, c(1,4)]
+```
+
+Combinamos el objeto de soluciones y el de información del sexo
+
+```{r}
+sol_df_sex <- merge(soluciones_df, info_sexo, by.x = "V3",  by.y = "Indiv")
+```
+
+```{r}
+sol_df_sex %>%
+  filter(Sex == "male") %>%  # Selecciona solo hembras
+  select(-V1, -V2) %>%         # Elimina las dos primeras columnas
+  rename(id = V3,              # Renombra V3 a "id"
+         EBV_df = V4,          # Renombra V4 a "EBV_df"
+         r2_df = V5) %>%       # Renombra V5 a "r2_df"
+  mutate(DEP_df = EBV_df / 2,  # Divide EBV_df entre dos y crea DEP_df
+         r_df = sqrt(r2_df),   # Saca raíz cuadrada de r2_df
+         ) %>%  # Crea columna de Ranking
+  arrange(DEP_df) %>% 
+  mutate(Ranking = 1:n()) %>%
+  head(10) %>% 
+  kbl()
+```
+
+\
+
+#### 8. Hacer un *ranking* de los 10 machos con mayor valor de precision (`accuracy`) para diámetro de fibra
+
+```{r}
+sol_df_sex %>%
+  filter(Sex == "male") %>%  # Selecciona solo hembras
+  select(-V1, -V2) %>%         # Elimina las dos primeras columnas
+  rename(id = V3,              # Renombra V3 a "id"
+         EBV_df = V4,          # Renombra V4 a "EBV_df"
+         r2_df = V5) %>%       # Renombra V5 a "r2_df"
+  mutate(DEP_df = EBV_df / 2,  # Divide EBV_df entre dos y crea DEP_df
+         r_df = sqrt(r2_df),   # Saca raíz cuadrada de r2_df
+         ) %>%  # Crea columna de Ranking
+  arrange(-r_df) %>% 
+  mutate(Ranking = 1:n()) %>%
+  head(10) %>% 
+  kbl()
+```
+
+\
+
+#### 9. Hacer un *ranking* de las 10 hembras con mayor DEP para peso vellón
+
+Recordando que:
+
+$$DEP = \frac{1}{2}EBV$$ Donde
+
+-   DEP = Diferencia esperada de la progenie, *expected progeny difference*
+
+-   EBV = Valor de cría, *estimated breeding value*
+
+Creamos archivo de parámetros: `param_BLUP_pve.txt`
+
+```{yaml}
+DATAFILE
+fenotipo_Merino.txt
+SKIP_HEADER
+1
+TRAITS
+6      # p_vellongras
+FIELDS_PASSED TO OUTPUT
+
+WEIGHT(S)
+
+RESIDUAL_VARIANCE
+0.6  
+EFFECT
+2 cross alpha # sex
+EFFECT
+3 cross alpha # Anho
+EFFECT
+4 cross alpha # Population
+EFFECT
+1 cross alpha # animal
+RANDOM
+animal 
+OPTIONAL
+
+FILE
+pedigri_Merino.txt
+SKIP_HEADER
+1
+PED_DEPTH
+0
+(CO)VARIANCES
+0.4 
+OPTION method BLUP
+OPTION store_accuracy 4 orig
+OPTION acctype 1.0
+OPTION inbreeding_method 1
+```
+
+Corremos los programas BLUPF90
+
+```{r eval=FALSE}
+system("./renumf90 param_BLUP_pve.txt")
+system("./blupf90+ renf90.par")
+```
+
+```{bash, eval=FALSE}
+mv acc_bf90 acc_bf90_pve
+```
+
+Leemos el archivo de soluciones
+
+```{r}
+soluciones_pve <- read.table("acc_bf90_pve", header = F)
+```
+
+Usamos un paquete de R para obtener la informacion del sexo de cada individuo
+
+```{r}
+pedigri <- read.table("pedigri_Merino.txt", header = T, na.strings = "0")
+library(optiSel)
+total_pedigri <- prePed(pedigri)
+info_sexo <- total_pedigri[, c(1,4)]
+```
+
+Combinamos el objeto de soluciones y el de informacion del sexo
+
+```{r}
+sol_pve_sex <- merge(soluciones_pve, info_sexo, by.x = "V3",  by.y = "Indiv")
+```
+
+```{r}
+sol_pve_sex %>%
+  filter(Sex == "female") %>%  # Selecciona solo hembras
+  select(-V1, -V2) %>%         # Elimina las dos primeras columnas
+  rename(id = V3,              # Renombra V3 a "id"
+         EBV_pve = V4,          # Renombra V4 a "EBV_df"
+         r2_pve = V5) %>%       # Renombra V5 a "r2_df"
+  mutate(DEP_pve = EBV_pve / 2,  # Divide EBV_df entre dos y crea DEP_df
+         r_pve = sqrt(r2_pve),   # Saca raíz cuadrada de r2_df
+         ) %>%  # Crea columna de Ranking
+  arrange(-DEP_pve) %>% 
+  mutate(Ranking = 1:n()) %>%
+  head(10) %>% 
+  kbl()
+```
+
+\
+
+#### 10. ¿Cual es el macho con la mayor DEP para diámetro de fibra y cómo se interpreta ese valor?
+
+Leemos el archivo de soluciones
+
+```{r}
+soluciones_df <- read.table("acc_bf90_df", header = F)
+```
+
+Usamos un paquete de R para obtener la informacion del sexo de cada individuo
+
+```{r}
+pedigri <- read.table("pedigri_Merino.txt", header = T, na.strings = "0")
+library(optiSel)
+total_pedigri <- prePed(pedigri)
+info_sexo <- total_pedigri[, c(1,4)]
+```
+
+Combinamos el objeto de soluciones y el de información del sexo
+
+```{r}
+sol_df_sex <- merge(soluciones_df, info_sexo, by.x = "V3",  by.y = "Indiv")
+```
+
+```{r}
+sol_df_sex %>%
+  filter(Sex == "male") %>%    # Selecciona solo hembras
+  select(-V1, -V2) %>%         # Elimina las columnas V1 y V2
+  rename(id = V3,              # Renombra V3 a "id"
+         EBV_df = V4,          # Renombra V4 a "EBV_df"
+         r2_df = V5) %>%       # Renombra V5 a "r2_df"
+  mutate(DEP_df = EBV_df / 2,  # Divide EBV_df entre dos y crea DEP_df
+         r_df = sqrt(r2_df),   # Saca raíz cuadrada de r2_df
+         ) %>%  
+  arrange(DEP_df) %>% 
+  mutate(Ranking = 1:n()) %>%  # Crea columna de Ranking
+  head(1) %>% 
+  kbl()
+```
+
+El individuo `Merino48589` tiene la mejor DEP para diámetro de fibra con un valor de : `-1.521929 um`. Este valor indica que se espera que en media la progenie de ese individuo tendrá -1.5 um de diámetro de lana comparado con la media poblacional
+
+#### 11. Calcule la tendencia genética de diámetro de fibra
+
+```{r}
+fenotipo <- read.table("fenotipo_Merino.txt", header = T, na.strings = "0")
+soluciones_df <- read.table("acc_bf90_df", header = F)
+sol_df_feno <- merge(soluciones_df, fenotipo, by.x = "V3",  by.y = "IId")
+```
+
+```{r}
+sol_df_feno$Anho <- as.numeric(sol_df_feno$Anho)
+
+df_plot <- sol_df_feno %>%
+                  rename(id = V3,                  
+                         EBV_df = V4,             
+                         r2_df = V5) %>%           
+                  mutate(DEP_df = EBV_df / 2,      
+                         r_df = sqrt(r2_df) )  %>% 
+                  group_by(Anho) %>%
+                         summarise(
+                            EBV_df_mean = mean(EBV_df, na.rm = TRUE),
+                            EBV_df_se = sd(EBV_df, na.rm = TRUE) / sqrt(n())  
+  )
+```
+
+
+```{r}
+ggplot(df_plot, aes(x = Anho, y = EBV_df_mean)) +
+  geom_point(size = 3, color = "black") + 
+  geom_line(linewidth = 0.8, color = "black") +  
+  geom_errorbar(aes(ymin = EBV_df_mean - EBV_df_se, 
+                    ymax = EBV_df_mean + EBV_df_se), 
+                width = 0.2, linewidth = 0.8, color = "black") +  
+  theme_bw() +  
+  labs(x = "Año", y = "EBV DF", 
+       title = "Tendencia genética de DF por Año") +
+  theme(
+    text = element_text(size = 14, family = "serif"),  
+    axis.text = element_text(size = 12),
+    panel.border = element_rect(fill = NA, color = "black", linewidth = 0.8)  
+    
+  )
+
+```
+
+#### 12. Graficar como cambia la precisión con el número de descendientes
+
+```{r}
+padres <- pedigri %>%
+    group_by(FId) %>%
+    summarize(count = n()) %>% 
+    mutate(sex = "M") 
+
+madres <- pedigri %>%
+    group_by(MId) %>%
+    summarize(count = n()) %>% 
+    mutate(sex = "F") %>% 
+    rename(FId = MId)
+
+progenitores <- rbind(padres, madres)
+```
+
+```{r}
+acc_prog <- merge(progenitores, sol_df_feno, by.x = "FId", by.y = "V3")
+```
+
+```{r, warning=FALSE}
+df_plot <- acc_prog %>%
+  rename(EBV_df = V4,              
+         r2_df = V5) %>%          
+  mutate(DEP_df = EBV_df / 2,       
+         r_df = sqrt(r2_df))
+
+ggplot(df_plot, aes(y = r_df, x = count, color = sex.x)) +
+  geom_point(size = 1.5) + 
+  theme_bw() +  
+  labs(x = "Número de hijos por reproductor", y = "Accuracy", 
+       title = "Precisión vs Número de descendientes", color = "Sex") +  
+  theme(
+    text = element_text(size = 14, family = "serif"),  
+    axis.text = element_text(size = 12),
+    panel.border = element_rect(fill = NA, color = "black", linewidth = 0.8),  
+    legend.position = c(0.85, 0.25),  
+    legend.background = element_rect(fill = "white", color = "black")  ) +
+  scale_color_manual(values = c("F" = "#FF6500", "M" = "#1E3E62"))  
+
+
+
+```

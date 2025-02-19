@@ -1,0 +1,118 @@
+---
+title: "Estimación de Componentes de Varianza y Valoración Genética"
+subtitle: "Genética y Genómica Aplicadas al Mejoramiento"
+format: pdf
+editor: visual
+---
+
+## Apellidos y Nombres completos
+
+.............
+
+Para el presente trabajo use datos de pedigrí
+
+`pedigri_Merino.txt` y de fenotipos
+
+`fenotipo_Merino.txt`
+
+Las caracteristicas a analizar son el
+
+`d_fibra(Diametro de fibra)` medido en kg y
+
+`p_vellon(Peso vellón grasiento)` medido en kg y
+
+`peso_vivo(Peso vivo del animal)` medido en kg
+
+    OJO: Los `0` indican que son datos faltantes
+
+## Preguntas
+
+#### 1. ¿Cuantos animales contiene el archivo de pedigri: *pedigri_Merino*?
+
+\
+
+#### 2. Calcule es el promedio de `d_fibra(diámetro de fibra)` por cada año del archivo de fenotipo: `fenotipo_Merino.txt`
+
+> Ayuda: Analizar la columna 5 del archivo fenotipo_Merino.txt
+
+\
+
+#### 3. Calcule el promedio de `peso_vivo(Peso vivo del animal)` por cada año del archivo de fenotipo: `fenotipo_Merino.txt`
+
+> Ayuda: Analizar la columna 7 del archivo fenotipo_Merino.txt
+
+\
+
+#### 4. ¿ Cual es la heredabilidad de diámetro de fibra?
+
+> Para correr el modelo use el siguiente modelo :
+
+$$\text{caracteristica} = sexo + año + poblacion + animal + e$$
+
+donde
+
+> **caracteristica** representa al diametro de fibra o peso vellon o peso vivo
+
+> el efecto fijo **sexo** esta en la columna 2 del archivo fenotipo_Merino.txt)
+
+> el efecto fijo **Anho** esta en la columna 3 del archivo fenotipo_Merino.txt)
+
+> el efecto fijo **poblacion** esta en la columna 4 del archivo fenotipo_Merino.txt)
+
+> el efecto aleatorio **animal** (columna 1 del archivo fenotipo_Merino.txt)
+
+ 
+
+#### 5. ¿ Cual es la heredabilidad de diámetro de fibra?
+
+$$h^2 = \frac{\sigma_a^2}{\sigma_p^2}$$\
+
+#### 6. ¿Cual es el promedio general de los valores genéticos predichos (EBV) del diámetro de fibra ?
+
+<!-- <center> -->
+
+<!-- ![](indiv.png){width=60%} -->
+
+<!-- </center> -->
+
+\
+
+#### 7. Hacer un *ranking* de los 10 machos con mayor DEP para diámetro de fibra
+
+Recordando que:
+
+$$DEP = \frac{1}{2}EBV$$ Donde
+
+-   DEP = Diferencia esperada de la progenie, *expected progeny difference*
+
+-   EBV = Valor de cría, *estimated breeding value*
+
+\
+
+#### 8. Hacer un *ranking* de los 10 machos con mayor valor de precision (`accuracy`) para diámetro de fibra
+
+\
+
+#### 9. Hacer un *ranking* de las 10 hembras con mayor DEP para peso vellón
+
+\
+
+#### 10. ¿Cual es el macho con la mayor DEP para diámetro de fibra y cómo se interpreta ese valor?
+
+
+#### 11. Calcule la tendencia genética de diametro de fibra
+
+
+> Ayuda
+
+
+
+\
+
+<!-- > Plazo de entrega 11:59pm del 29-09-2024 -->
+
+<!-- > Presentar muestra de código que ha usado o una captura de pantalla que muestre el análisis que ha realizado por cada pregunta. -->
+
+<!-- > Subir el archivo pdf al aula virtual del ClassRoom -->
+
+<!-- > Poner su apellido en el archivo pdf -->
